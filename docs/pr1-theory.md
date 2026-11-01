@@ -124,7 +124,7 @@ sequenceDiagram
 | `lls` | Локальная файловая система | `os.ReadDir` |
 | `lcd name` | Состояние CLI и проверка локального каталога | `os.Stat` |
 | `cat name` | HDFS → терминал | GET, `op=OPEN` |
-| Команды `lmkdir`, `lcat`, `lecho`, `lappend`, `ldelete` | Локальная файловая система | Функции Go, без HTTP |
+| Команды `lmkdir`, `lcat`, `lappend`, `ldelete` | Локальная файловая система | Функции Go, без HTTP |
 
 `append` здесь дописывает байты локального файла; отдельная серверная операция `CONCAT` не используется.
 
@@ -195,19 +195,19 @@ hdfs:/orders local:/Users/student/files>
 
 **16. Пример для демонстрации на защите**
 
-В системном терминале:
+В системном терминале подготовь локальные файлы и запусти клиент:
 
 ```bash
+mkdir demo-local
+printf 'first line\n' > demo-local/sample.txt
+printf 'second line\n' > demo-local/extra.txt
 make pr1
 ```
 
 Далее команды вводятся уже в нашем CLI. Для повторного запуска примера выбирай свободные имена каталогов:
 
 ```text
-lmkdir demo-local
 lcd demo-local
-lecho "first line" > sample.txt
-lecho "second line" > extra.txt
 lcat sample.txt
 mkdir demo-hdfs
 cd demo-hdfs

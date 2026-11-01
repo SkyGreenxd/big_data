@@ -31,7 +31,7 @@ type shell struct {
 
 type commandSpec struct {
 	usage       string
-	names       int // -1 means the command has its own argument parser
+	names       int
 	allowParent bool
 }
 
@@ -45,8 +45,6 @@ var commands = []commandSpec{
 	{"lappend <source-file> <target-file>", 2, false},
 	{"cat <hdfs-file>", 1, false},
 	{"lcat <local-file>", 1, false},
-	{"lecho <text> > <local-file>", -1, false},
-	{"lecho <text> >> <local-file>", -1, false},
 	{"delete <hdfs-file>", 1, false},
 	{"ldelete <local-file>", 1, false},
 	{"ls", 0, false},
@@ -170,8 +168,6 @@ func (s *shell) execute(args []string) error {
 		defer file.Close()
 		_, err = io.Copy(s.out, file)
 		return err
-	case "lecho":
-		return s.echoLocal(args)
 	case "delete":
 		return s.client.Delete(path.Join(s.hdfsDir, args[1]))
 	case "ldelete":
@@ -200,39 +196,6 @@ func (s *shell) execute(args []string) error {
 	default:
 		return fmt.Errorf("unknown command %q; type 'help'", args[0])
 	}
-}
-
-func parseEcho(args []string) (text, redirect, name string, err error) {
-	if len(args) < 4 {
-		return "", "", "", usage(args[0] + ` <text> > <file> or ` + args[0] + ` <text> >> <file>`)
-	}
-	redirectIndex := len(args) - 2
-	if args[redirectIndex] != ">" && args[redirectIndex] != ">>" {
-		return "", "", "", usage(args[0] + ` <text> > <file> or ` + args[0] + ` <text> >> <file>`)
-	}
-	name = args[redirectIndex+1]
-	if err := validName(name, false); err != nil {
-		return "", "", "", err
-	}
-	return strings.Join(args[1:redirectIndex], " ") + "\n", args[redirectIndex], name, nil
-}
-
-func (s *shell) echoLocal(args []string) error {
-	text, redirect, name, err := parseEcho(args)
-	if err != nil {
-		return err
-	}
-	flags := os.O_CREATE | os.O_WRONLY | os.O_TRUNC
-	if redirect == ">>" {
-		flags = os.O_CREATE | os.O_WRONLY | os.O_APPEND
-	}
-	file, err := os.OpenFile(filepath.Join(s.localDir, name), flags, 0o644)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	_, err = io.WriteString(file, text)
-	return err
 }
 
 func (s *shell) appendLocal(sourceName, targetName string) error {
@@ -318,9 +281,6 @@ func validateCommand(args []string) error {
 	for _, command := range commands {
 		if strings.Fields(command.usage)[0] != args[0] {
 			continue
-		}
-		if command.names < 0 {
-			return nil
 		}
 		if len(args) != command.names+1 {
 			return usage(command.usage)
