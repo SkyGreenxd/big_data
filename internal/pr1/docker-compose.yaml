@@ -1,0 +1,48 @@
+services:
+  namenode:
+    image: apache/hadoop:3.4.3
+    platform: linux/amd64
+    container_name: hdfscli-namenode
+    hostname: namenode
+    user: root
+    command: ["hdfs", "namenode"]
+    environment:
+      ENSURE_NAMENODE_DIR: /data/name/current
+      CORE-SITE.XML_fs.defaultFS: hdfs://namenode:9000
+      HDFS-SITE.XML_dfs.namenode.name.dir: file:///data/name
+      HDFS-SITE.XML_dfs.namenode.rpc-address: namenode:9000
+      HDFS-SITE.XML_dfs.namenode.http-address: 0.0.0.0:9870
+      HDFS-SITE.XML_dfs.webhdfs.enabled: "true"
+      HDFS-SITE.XML_dfs.replication: "1"
+      HDFS-SITE.XML_dfs.permissions.enabled: "false"
+    ports:
+      - "9870:9870"
+    volumes:
+      - namenode-data:/data/name
+
+  datanode:
+    image: apache/hadoop:3.4.3
+    platform: linux/amd64
+    container_name: hdfscli-datanode
+    hostname: datanode
+    user: root
+    command: ["hdfs", "datanode"]
+    depends_on:
+      - namenode
+    environment:
+      WAITFOR: namenode:9000
+      CORE-SITE.XML_fs.defaultFS: hdfs://namenode:9000
+      HDFS-SITE.XML_dfs.datanode.data.dir: file:///data/data
+      HDFS-SITE.XML_dfs.datanode.hostname: localhost
+      HDFS-SITE.XML_dfs.datanode.http.address: 0.0.0.0:9864
+      HDFS-SITE.XML_dfs.webhdfs.enabled: "true"
+      HDFS-SITE.XML_dfs.replication: "1"
+      HDFS-SITE.XML_dfs.permissions.enabled: "false"
+    ports:
+      - "9864:9864"
+    volumes:
+      - datanode-data:/data/data
+
+volumes:
+  namenode-data:
+  datanode-data:

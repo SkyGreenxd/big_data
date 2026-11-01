@@ -1,0 +1,95 @@
+name: shop-pr2
+
+x-hadoop-env: &hadoop-env
+  CORE-SITE.XML_fs.defaultFS: hdfs://namenode:9000
+  HDFS-SITE.XML_dfs.replication: "1"
+  HDFS-SITE.XML_dfs.permissions.enabled: "false"
+  HDFS-SITE.XML_dfs.webhdfs.enabled: "true"
+  HDFS-SITE.XML_dfs.client.use.datanode.hostname: "true"
+  MAPRED-SITE.XML_mapreduce.framework.name: yarn
+  MAPRED-SITE.XML_mapreduce.application.classpath: /opt/hadoop/share/hadoop/mapreduce/*:/opt/hadoop/share/hadoop/mapreduce/lib/*
+  MAPRED-SITE.XML_yarn.app.mapreduce.am.env: HADOOP_MAPRED_HOME=/opt/hadoop
+  MAPRED-SITE.XML_mapreduce.map.env: HADOOP_MAPRED_HOME=/opt/hadoop
+  MAPRED-SITE.XML_mapreduce.reduce.env: HADOOP_MAPRED_HOME=/opt/hadoop
+  MAPRED-SITE.XML_yarn.app.mapreduce.am.resource.mb: "512"
+  MAPRED-SITE.XML_yarn.app.mapreduce.am.command-opts: -Xmx384m
+  MAPRED-SITE.XML_mapreduce.map.memory.mb: "512"
+  MAPRED-SITE.XML_mapreduce.reduce.memory.mb: "512"
+  MAPRED-SITE.XML_mapreduce.map.java.opts: -Xmx256m
+  MAPRED-SITE.XML_mapreduce.reduce.java.opts: -Xmx256m
+  YARN-SITE.XML_yarn.resourcemanager.hostname: resourcemanager
+  YARN-SITE.XML_yarn.nodemanager.aux-services: mapreduce_shuffle
+  YARN-SITE.XML_yarn.nodemanager.env-whitelist: JAVA_HOME,HADOOP_COMMON_HOME,HADOOP_HDFS_HOME,HADOOP_CONF_DIR,CLASSPATH_PREPEND_DISTCACHE,HADOOP_YARN_HOME,HADOOP_HOME,PATH,LANG,TZ,HADOOP_MAPRED_HOME
+  YARN-SITE.XML_yarn.nodemanager.resource.memory-mb: "4096"
+  YARN-SITE.XML_yarn.nodemanager.resource.cpu-vcores: "4"
+  YARN-SITE.XML_yarn.scheduler.minimum-allocation-mb: "512"
+  YARN-SITE.XML_yarn.scheduler.maximum-allocation-mb: "4096"
+  YARN-SITE.XML_yarn.nodemanager.pmem-check-enabled: "false"
+  YARN-SITE.XML_yarn.nodemanager.vmem-check-enabled: "false"
+  CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.maximum-am-resource-percent: "0.5"
+
+x-hadoop: &hadoop
+  image: apache/hadoop:3.4.3
+  platform: linux/amd64
+  user: root
+
+services:
+  namenode:
+    <<: *hadoop
+    hostname: namenode
+    command: ["hdfs", "namenode"]
+    environment:
+      <<: *hadoop-env
+      ENSURE_NAMENODE_DIR: /data/name/current
+      HDFS-SITE.XML_dfs.namenode.name.dir: file:///data/name
+      HDFS-SITE.XML_dfs.namenode.rpc-address: namenode:9000
+      HDFS-SITE.XML_dfs.namenode.http-address: 0.0.0.0:9870
+    ports:
+      - "127.0.0.1:9870:9870"
+    volumes:
+      - namenode-data:/data/name
+
+  datanode:
+    <<: *hadoop
+    hostname: datanode
+    command: ["hdfs", "datanode"]
+    depends_on: [namenode]
+    environment:
+      <<: *hadoop-env
+      WAITFOR: namenode:9000
+      HDFS-SITE.XML_dfs.datanode.data.dir: file:///data/data
+      HDFS-SITE.XML_dfs.datanode.hostname: datanode
+      HDFS-SITE.XML_dfs.datanode.http.address: 0.0.0.0:9864
+    ports:
+      - "127.0.0.1:9864:9864"
+    volumes:
+      - datanode-data:/data/data
+
+  resourcemanager:
+    <<: *hadoop
+    hostname: resourcemanager
+    command: ["yarn", "resourcemanager"]
+    depends_on: [namenode]
+    environment:
+      <<: *hadoop-env
+      WAITFOR: namenode:9000
+    ports:
+      - "127.0.0.1:8088:8088"
+    volumes:
+      - ../../bin:/work/bin:ro
+      - ./scripts:/work/scripts:ro
+
+  nodemanager:
+    <<: *hadoop
+    hostname: nodemanager
+    command: ["yarn", "nodemanager"]
+    depends_on: [resourcemanager, datanode]
+    environment:
+      <<: *hadoop-env
+      WAITFOR: resourcemanager:8032
+    ports:
+      - "127.0.0.1:8042:8042"
+
+volumes:
+  namenode-data:
+  datanode-data:

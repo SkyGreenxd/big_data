@@ -1,0 +1,5 @@
+.DS_Store
+/bin/
+internal/pr1/myhdfscli
+internal/pr2/data/
+internal/pr2/runs/
