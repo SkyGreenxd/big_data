@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"bigdata/internal/pr2"
+	"github.com/SkyGreenxd/bigdata/internal/pr2"
 )
 
 func main() {

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"bigdata/pkg/webhdfs"
+	"github.com/SkyGreenxd/bigdata/pkg/webhdfs"
 )
 
 func sorted(input string) string {

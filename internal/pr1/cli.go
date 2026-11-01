@@ -12,7 +12,7 @@ import (
 	"strings"
 	"unicode"
 
-	"bigdata/pkg/webhdfs"
+	"github.com/SkyGreenxd/bigdata/pkg/webhdfs"
 )
 
 const (

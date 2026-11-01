@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"bigdata/internal/pr1"
+	"github.com/SkyGreenxd/bigdata/internal/pr1"
 )
 
 func main() {

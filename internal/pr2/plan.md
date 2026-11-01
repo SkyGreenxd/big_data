@@ -12,7 +12,7 @@
 - Docker Compose для локального Hadoop-кластера.
 - Собственный WebHDFS-клиент из `pr1` как основа доступа к HDFS.
 
-В `internal/pr1/compose.yaml` настроены NameNode и DataNode. Для второй работы используется отдельная конфигурация с сервисами YARN. Обе работы входят в единый Go-модуль `bigdata`.
+В `internal/pr1/compose.yaml` настроены NameNode и DataNode. Для второй работы используется отдельная конфигурация с сервисами YARN. Обе работы входят в единый Go-модуль `github.com/SkyGreenxd/bigdata`.
 
 ## 1. Структура проекта и общий WebHDFS-клиент
 

@@ -2,7 +2,7 @@
 
 Реализация на Go: генератор заказов, Cross Correlation Pairs и Stripes для Hadoop Streaming и советник, самостоятельно читающий результаты из HDFS через WebHDFS. Hadoop выполняет распределение, сортировку, группировку и запуск mapper/reducer. Советник работает обычной Go-программой без MapReduce.
 
-Обе работы входят в единый модуль `bigdata` с `go.mod` в корне.
+Обе работы входят в единый модуль `github.com/SkyGreenxd/bigdata` с `go.mod` в корне.
 Из корня доступны `make build`, `make linux`, `make test` и `make demo`.
 
 ## Требования
@@ -172,7 +172,7 @@ HTTP-проверки используют транспорт в памяти и
 ## Структура
 
 ```text
-go.mod                       единый Go-модуль bigdata
+go.mod                       единый Go-модуль github.com/SkyGreenxd/bigdata
 Makefile                     сборка и проверки всего проекта
 cmd/pr1/main.go              точка входа WebHDFS CLI
 cmd/pr2/main.go              точка входа CLI рекомендаций

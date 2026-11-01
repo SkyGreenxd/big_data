@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"bigdata/pkg/webhdfs"
+	"github.com/SkyGreenxd/bigdata/pkg/webhdfs"
 )
 
 func flags(name string) *flag.FlagSet { return flag.NewFlagSet(name, flag.ContinueOnError) }

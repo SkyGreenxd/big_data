@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"bigdata/pkg/webhdfs"
+	"github.com/SkyGreenxd/bigdata/pkg/webhdfs"
 )
 
 type FileSystem interface {
