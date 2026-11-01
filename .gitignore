@@ -1,5 +1,6 @@
 .DS_Store
 .idea/
+/docs/
 /bin/
 internal/pr1/myhdfscli
 internal/pr2/data/
