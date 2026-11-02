@@ -124,7 +124,7 @@ func Recommend(fs FileSystem, dir, algorithm string, products []Product, name st
 	}
 	counts := make(map[string]int64)
 	err = WalkResults(fs, dir, algorithm, func(rec Record) error {
-		if algorithm == "pairs" {
+		if algorithm == AlgorithmPairs {
 			if rec.Pair[0] != target.ID {
 				return nil
 			}
@@ -177,7 +177,7 @@ func Recommend(fs FileSystem, dir, algorithm string, products []Product, name st
 // Compare is a validation utility; its full pair matrix is intended for demo-sized data.
 func Compare(fs FileSystem, pairsDir, stripesDir string) (int, error) {
 	expected := make(map[Pair]int64)
-	err := WalkResults(fs, pairsDir, "pairs", func(rec Record) error {
+	err := WalkResults(fs, pairsDir, AlgorithmPairs, func(rec Record) error {
 		if _, exists := expected[rec.Pair]; exists {
 			return fmt.Errorf("duplicate pair %v", rec.Pair)
 		}
@@ -189,7 +189,7 @@ func Compare(fs FileSystem, pairsDir, stripesDir string) (int, error) {
 	}
 	total := len(expected)
 	seen := make(map[string]bool)
-	err = WalkResults(fs, stripesDir, "stripes", func(rec Record) error {
+	err = WalkResults(fs, stripesDir, AlgorithmStripes, func(rec Record) error {
 		if seen[rec.Key] {
 			return fmt.Errorf("duplicate stripe %q", rec.Key)
 		}

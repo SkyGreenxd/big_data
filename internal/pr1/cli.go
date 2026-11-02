@@ -1,10 +1,12 @@
 package pr1
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path"
 	"path/filepath"
 	"sort"
@@ -76,25 +78,36 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, "error:", err)
 		return 1
 	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
 	s := shell{client: client, hdfsDir: "/", localDir: localDir, in: in, out: out, errOut: errOut}
-	if err := s.run(); err != nil {
+	if err := s.run(ctx); err != nil {
+		if errors.Is(err, context.Canceled) {
+			fmt.Fprintln(errOut, "interrupted")
+			return 130
+		}
 		fmt.Fprintln(errOut, "error:", err)
 		return 1
 	}
 	return 0
 }
 
-func (s *shell) run() error {
+func (s *shell) run(ctx context.Context) error {
+	s.client = s.client.WithContext(ctx)
 	fmt.Fprintln(s.out, "WebHDFS client. Type 'help' for commands, 'exit' to quit.")
 	var history []string
 	readLine := newLineReader(s.in, s.out)
 	defer readLine.close()
 	for {
 		printcli := fmt.Sprintf("hdfs:%s local:%s> ", s.hdfsDir, s.localDir)
-		line, err := readLine.read(printcli, history)
+		line, err := readLine.readContext(ctx, printcli, history)
 		if errors.Is(err, io.EOF) {
 			fmt.Fprintln(s.out)
 			return nil
+		}
+		if errors.Is(err, errCommandTooLong) {
+			fmt.Fprintln(s.errOut, "error:", err)
+			continue
 		}
 		if err != nil {
 			return err
@@ -120,7 +133,11 @@ func (s *shell) run() error {
 		if args[0] == "exit" || args[0] == "quit" {
 			return nil
 		}
-		if err := s.execute(args); err != nil {
+		err = s.execute(args)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if err != nil {
 			fmt.Fprintln(s.errOut, "error:", err)
 		}
 	}
@@ -141,7 +158,7 @@ func (s *shell) execute(args []string) error {
 	case "lmkdir":
 		return os.Mkdir(filepath.Join(s.localDir, args[1]), 0o755) // x is required to access directory contents.
 	case "put":
-		file, err := os.Open(filepath.Join(s.localDir, args[1]))
+		file, err := openRegularFile(filepath.Join(s.localDir, args[1]))
 		if err != nil {
 			return err
 		}
@@ -150,7 +167,7 @@ func (s *shell) execute(args []string) error {
 	case "get":
 		return s.download(args[1])
 	case "append":
-		file, err := os.Open(filepath.Join(s.localDir, args[1]))
+		file, err := openRegularFile(filepath.Join(s.localDir, args[1]))
 		if err != nil {
 			return err
 		}
@@ -196,6 +213,23 @@ func (s *shell) execute(args []string) error {
 	default:
 		return fmt.Errorf("unknown command %q; type 'help'", args[0])
 	}
+}
+
+func openRegularFile(name string) (*os.File, error) {
+	file, err := os.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	info, err := file.Stat()
+	if err != nil {
+		file.Close()
+		return nil, err
+	}
+	if !info.Mode().IsRegular() {
+		file.Close()
+		return nil, fmt.Errorf("%q is not a regular file", name)
+	}
+	return file, nil
 }
 
 func (s *shell) appendLocal(sourceName, targetName string) error {

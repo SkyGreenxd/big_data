@@ -2,6 +2,7 @@ package pr1
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -9,6 +10,8 @@ import (
 	"os/exec"
 	"strings"
 )
+
+var errCommandTooLong = fmt.Errorf("command exceeds %d bytes", commandLimit)
 
 type lineReader struct {
 	in      *bufio.Reader
@@ -34,7 +37,7 @@ func newLineReader(in io.Reader, out io.Writer) *lineReader {
 		"stty",     // Настроить терминал
 		"-echo",    // Не показывать ввод автоматически
 		"-icanon",  // Читать клавиши без ожидания Enter
-		"-isig",    // Передавать управляющие клавиши как ввод
+		"isig",     // Ctrl-C sends SIGINT even during a network request.
 		"min", "1", // Ждать хотя бы один байт
 		"time", "0", // Не использовать таймер ожидания
 	)
@@ -57,6 +60,30 @@ func (r *lineReader) close() {
 	_ = cmd.Run()
 }
 
+func (r *lineReader) readContext(ctx context.Context, prompt string, history []string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	type result struct {
+		line string
+		err  error
+	}
+	done := make(chan result, 1)
+	go func() {
+		line, err := r.read(prompt, history)
+		done <- result{line, err}
+	}()
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case got := <-done:
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
+		return got.line, got.err
+	}
+}
+
 func (r *lineReader) read(prompt string, history []string) (string, error) {
 	fmt.Fprint(r.out, prompt)
 	if !r.modeRaw {
@@ -71,6 +98,7 @@ func (r *lineReader) read(prompt string, history []string) (string, error) {
 
 func (r *lineReader) readKeys(prompt string, history []string) (string, error) {
 	var line, draft string
+	tooLong := false
 	position := len(history)
 	redraw := func() {
 		fmt.Fprintf(r.out, "\r\x1b[2K%s%s", prompt, line) // to-start, clear, print
@@ -83,6 +111,9 @@ func (r *lineReader) readKeys(prompt string, history []string) (string, error) {
 		switch key {
 		case '\r', '\n':
 			fmt.Fprintln(r.out)
+			if tooLong {
+				return "", errCommandTooLong
+			}
 			return line, nil
 		case 3: // Ctrl-C
 			return "", io.EOF
@@ -126,7 +157,11 @@ func (r *lineReader) readKeys(prompt string, history []string) (string, error) {
 				}
 			}
 		default:
-			if key >= ' ' && len(line)+len(string(key)) <= commandLimit {
+			if key >= ' ' {
+				if len(line)+len(string(key)) > commandLimit {
+					tooLong = true
+					continue
+				}
 				line += string(key)
 				fmt.Fprint(r.out, string(key))
 			}

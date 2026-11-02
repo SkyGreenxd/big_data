@@ -11,6 +11,11 @@ import (
 	"strings"
 )
 
+const (
+	AlgorithmPairs   = "pairs"
+	AlgorithmStripes = "stripes"
+)
+
 type Order struct {
 	ID       int64    `json:"order_id"`
 	Products []string `json:"products"`
@@ -26,7 +31,7 @@ type Record struct {
 }
 
 func CheckAlgorithm(algorithm string) error {
-	if algorithm != "pairs" && algorithm != "stripes" {
+	if algorithm != AlgorithmPairs && algorithm != AlgorithmStripes {
 		return fmt.Errorf("algorithm must be pairs or stripes")
 	}
 	return nil
@@ -63,25 +68,30 @@ func Map(algorithm string, in io.Reader, out io.Writer) error {
 		if err := json.Unmarshal([]byte(line), &order); err != nil {
 			return fmt.Errorf("order: %w", err)
 		}
+
 		seen := make(map[string]bool)
 		products := make([]string, 0, len(order.Products))
 		for _, id := range order.Products {
 			if !validID(id) {
 				return fmt.Errorf("invalid product ID %q", id)
 			}
+
 			if !seen[id] {
 				seen[id] = true
 				products = append(products, id)
 			}
 		}
+
 		sort.Strings(products)
+
 		for _, a := range products {
 			stripe := make(map[string]int64)
 			for _, b := range products {
 				if a == b {
 					continue
 				}
-				if algorithm == "pairs" {
+
+				if algorithm == AlgorithmPairs {
 					key, _ := json.Marshal(Pair{a, b})
 					if _, err := fmt.Fprintf(w, "%s\t1\n", key); err != nil {
 						return err
@@ -90,7 +100,7 @@ func Map(algorithm string, in io.Reader, out io.Writer) error {
 					stripe[b] = 1
 				}
 			}
-			if algorithm == "stripes" && len(stripe) > 0 {
+			if algorithm == AlgorithmStripes && len(stripe) > 0 {
 				data, _ := json.Marshal(stripe)
 				if _, err := fmt.Fprintf(w, "%s\t%s\n", a, data); err != nil {
 					return err
@@ -113,7 +123,7 @@ func ParseRecord(algorithm, line string) (Record, error) {
 	}
 	rec := Record{Key: key}
 	switch algorithm {
-	case "pairs":
+	case AlgorithmPairs:
 		var ids []string
 		if err := json.Unmarshal([]byte(key), &ids); err != nil || len(ids) != 2 {
 			return rec, fmt.Errorf("invalid pair key %q", key)
@@ -131,7 +141,7 @@ func ParseRecord(algorithm, line string) (Record, error) {
 			return rec, fmt.Errorf("invalid positive count %q", value)
 		}
 		rec.Count = count
-	case "stripes":
+	case AlgorithmStripes:
 		if !validID(key) {
 			return rec, fmt.Errorf("invalid product ID %q", key)
 		}
@@ -169,7 +179,7 @@ func Reduce(algorithm string, in io.Reader, out io.Writer) error {
 		if key == "" {
 			return nil
 		}
-		if algorithm == "pairs" {
+		if algorithm == AlgorithmPairs {
 			_, err := fmt.Fprintf(w, "%s\t%d\n", key, sum)
 			return err
 		}
@@ -196,7 +206,7 @@ func Reduce(algorithm string, in io.Reader, out io.Writer) error {
 			sum = 0
 			stripe = make(map[string]int64)
 		}
-		if algorithm == "pairs" {
+		if algorithm == AlgorithmPairs {
 			sum, err = Add(sum, rec.Count)
 			return err
 		}

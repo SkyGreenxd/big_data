@@ -1,13 +1,82 @@
 package webhdfs
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
+
+type cancelTransport func(*http.Request) (*http.Response, error)
+
+func (f cancelTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestCancellationAtNameNodeAndDataNode(t *testing.T) {
+	for _, op := range []string{"MKDIRS", "CREATE", "APPEND", "OPEN"} {
+		for _, stage := range []string{"namenode", "datanode"} {
+			if op == "MKDIRS" && stage == "datanode" {
+				continue
+			}
+			t.Run(op+"/"+stage, func(t *testing.T) {
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				started := make(chan struct{})
+				transport := cancelTransport(func(req *http.Request) (*http.Response, error) {
+					if stage == "datanode" && req.URL.Host == "namenode:9870" {
+						return &http.Response{
+							StatusCode: http.StatusTemporaryRedirect,
+							Header:     http.Header{"Location": {"http://datanode:9864/file"}},
+							Body:       io.NopCloser(strings.NewReader("")),
+						}, nil
+					}
+					close(started)
+					<-req.Context().Done()
+					return nil, req.Context().Err()
+				})
+				base, err := NewWithBaseURL("http://namenode:9870", "test", &http.Client{Transport: transport})
+				if err != nil {
+					t.Fatal(err)
+				}
+				client := base.WithContext(ctx)
+				done := make(chan error, 1)
+				go func() {
+					switch op {
+					case "MKDIRS":
+						done <- client.Mkdir("/dir")
+					case "CREATE":
+						done <- client.Create("/file", strings.NewReader("data"))
+					case "APPEND":
+						done <- client.Append("/file", strings.NewReader("data"))
+					case "OPEN":
+						done <- client.Open("/file", io.Discard)
+					}
+				}()
+				select {
+				case <-started:
+				case <-time.After(3 * time.Second):
+					t.Fatal("request did not reach target")
+				}
+				cancel()
+				select {
+				case err := <-done:
+					if !errors.Is(err, context.Canceled) {
+						t.Fatalf("expected cancellation, got %v", err)
+					}
+				case <-time.After(3 * time.Second):
+					t.Fatal("request ignored cancellation")
+				}
+				if base.ctx.Err() != nil {
+					t.Fatal("canceling the copy also canceled the original client")
+				}
+			})
+		}
+	}
+}
 
 // Exercise http.Client redirect handling without opening listening sockets.
 type handlerTransport struct{ handler http.Handler }

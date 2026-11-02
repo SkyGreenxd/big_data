@@ -1,6 +1,7 @@
 package webhdfs
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 )
 
 type Client struct {
+	ctx         context.Context
 	baseURL     string
 	user        string
 	http        *http.Client
@@ -65,7 +67,15 @@ func NewWithBaseURL(baseURL, user string, client *http.Client) (*Client, error) 
 		transport.ResponseHeaderTimeout = 30 * time.Second
 		client = &http.Client{Transport: transport}
 	}
-	return &Client{baseURL: strings.TrimRight(baseURL, "/"), user: user, http: client}, nil
+	return &Client{ctx: context.Background(), baseURL: strings.TrimRight(baseURL, "/"), user: user, http: client}, nil
+}
+
+// WithContext returns a copy that uses ctx for all requests, including redirects
+// and transfers to DataNodes. The original client is unchanged.
+func (c *Client) WithContext(ctx context.Context) *Client {
+	copy := *c
+	copy.ctx = ctx
+	return &copy
 }
 
 // NewWithEndpoints supports a single DataNode behind a Docker port mapping.
@@ -219,7 +229,7 @@ func (c *Client) redirectedUpload(method, hdfsPath, op string, query url.Values,
 		return fmt.Errorf("%s: redirect has no Location header", op)
 	}
 
-	req, err := http.NewRequest(method, location, src)
+	req, err := http.NewRequestWithContext(c.ctx, method, location, src)
 	if err != nil {
 		return fmt.Errorf("build data-node request: %w", err)
 	}
@@ -251,7 +261,7 @@ func (c *Client) request(method, hdfsPath, op string, query url.Values, body io.
 		}
 	}
 	u.RawQuery = q.Encode()
-	req, err := http.NewRequest(method, u.String(), body)
+	req, err := http.NewRequestWithContext(c.ctx, method, u.String(), body)
 	if err != nil {
 		return nil, err
 	}

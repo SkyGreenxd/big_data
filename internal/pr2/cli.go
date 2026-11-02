@@ -42,7 +42,7 @@ func Run(args []string, in io.Reader, out io.Writer) error {
 	switch args[0] {
 	case "map", "reduce":
 		f := flags(args[0])
-		algorithm := f.String("algorithm", "pairs", "pairs or stripes")
+		algorithm := f.String("algorithm", AlgorithmPairs, "pairs or stripes")
 		if err := parsed(f, args[1:]); err != nil {
 			return err
 		}
@@ -121,7 +121,7 @@ func Run(args []string, in io.Reader, out io.Writer) error {
 	case "recommend":
 		f := flags("recommend")
 		h := hdfsOptions(f)
-		algorithm := f.String("algorithm", "pairs", "pairs or stripes")
+		algorithm := f.String("algorithm", AlgorithmPairs, "pairs or stripes")
 		resultDir := f.String("results", "/shop/results/pairs", "HDFS result directory")
 		catalogPath := f.String("catalog", "/shop/input/catalog.json", "HDFS catalog path")
 		name := f.String("product", "", "product name; reads one line from stdin if omitted")
