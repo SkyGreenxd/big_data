@@ -20,13 +20,6 @@ type GeneratorConfig struct {
 	Seed     int64
 }
 
-func (c GeneratorConfig) Validate() error {
-	if c.Orders < 0 || c.Products < 1 || c.MinItems < 1 || c.MaxItems < c.MinItems || c.MaxItems > c.Products {
-		return fmt.Errorf("require orders >= 0, products >= 1 and 1 <= min-items <= max-items <= products")
-	}
-	return nil
-}
-
 // Names are grouped in fives to make correlated baskets visible in recommendations.
 var names = []string{
 	"Кофе", "Молоко", "Сахар", "Печенье", "Шоколад",
@@ -38,9 +31,6 @@ var names = []string{
 }
 
 func Generate(c GeneratorConfig, catalogOut, ordersOut io.Writer) error {
-	if err := c.Validate(); err != nil {
-		return err
-	}
 	products := make([]Product, c.Products)
 	for i := range products {
 		name := fmt.Sprintf("Товар %06d", i+1)
